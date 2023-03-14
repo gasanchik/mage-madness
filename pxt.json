@@ -1,0 +1,48 @@
+{
+    "name": "Mage Madness revision 2 v0.0.4.1",
+    "description": "",
+    "dependencies": {
+        "device": "*",
+        "pxt-arcade-image-transform": "github:robo-technical-group/pxt-arcade-image-transform#v1.0.9"
+    },
+    "files": [
+        "main.ts",
+        "README.md",
+        "assets.json",
+        "gameAssets.ts",
+        "renderer.ts",
+        "tiles.ts",
+        "utilities.ts",
+        "images.g.jres",
+        "images.g.ts"
+    ],
+    "testFiles": [
+        "test.ts"
+    ],
+    "targetVersions": {
+        "target": "1.12.25",
+        "targetId": "arcade"
+    },
+    "supportedTargets": [
+        "arcade"
+    ],
+    "preferredEditor": "tsprj",
+    "palette": [
+        "#000000",
+        "#FFFFFF",
+        "#FF2121",
+        "#FF8135",
+        "#FFF609",
+        "#78DC52",
+        "#87F2FF",
+        "#249CA3",
+        "#003FAD",
+        "#8E2EC4",
+        "#FF93C4",
+        "#E5CDC4",
+        "#A4839F",
+        "#5C406c",
+        "#91463d",
+        "#000000"
+    ]
+}
