@@ -94,7 +94,7 @@ namespace renderer {
     }
 
     /*
-    //I fucking hate this piece of shit "hardware" 
+
     export function slowRotate(imageToAffect: Image, degrees: number): Image {
         let numberOfTimesToRotate: number = Math.modulo(Math.ceil(degrees / 90), 360)
         function rotateOneTime(imageToAffect: Image): Image {
@@ -234,7 +234,6 @@ namespace renderer {
         stampImageToImage(tileVisual, screen, pixelPosition)
     }
 
-    
     function drawTiles(layer: number = 0) {
         if (customTiles.loadingNewLevel) {
             return 
