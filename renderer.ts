@@ -8,7 +8,7 @@ namespace renderer {
     export type LightSource = {
         pixelPosition: Vector2,
         radiusPixels: number, 
-        colorMapPalette: Buffer[],
+        colorMapPalette: number[],
     }
 
     export let screenPosition: Vector2 = new Vector2(0, 0)
@@ -19,19 +19,28 @@ namespace renderer {
     export const tilesPerScreen: Vector2 = screenSize.divide(customTiles.tileSizePixels, true).round(1)
 
     let cachedTiles: {[key: string]: Image} = {}
-    let lightSources: LightSource[] = [{
-        pixelPosition: new Vector2(80, 60),
-        radiusPixels: 30,
-        colorMapPalette: [utilities.getBufferFromImageY(1, gameAssets.levels[0].colorMapPaletteImage), utilities.getBufferFromImageY(2, gameAssets.levels[0].colorMapPaletteImage)]
-    }]
+    let lightSources: LightSource[] = [
+        {
+            pixelPosition: new Vector2(80, 60),
+            radiusPixels: 60,
+            colorMapPalette: [6, 5]
+        }
+    ]
     //40, 30
     let lightBufferSize: Vector2 = new Vector2(52, 50) //40, 30 //20, 15, //26, 25 
     let lightBuffer: Buffer = Buffer.create(lightBufferSize.x * lightBufferSize.y)
     let lightBufferPosition: Vector2 = new Vector2(-24, -40) //In pixel position
-    //lightBuffer.setUint8(321, 3)
-    //lightBuffer.setUint8(372, 3)
-    //lightBuffer.setUint8(373, 3)
-    //lightBuffer.fill(1, 0, 500)
+
+    const bayerThresholdMap = [
+        [1, 49, 13, 61, 4, 52, 16, 64],
+        [33, 17, 45, 29, 36, 20, 48, 32],
+        [9, 57, 5, 53, 12, 60, 8, 56],
+        [41, 25, 37, 21, 44, 28, 40, 24],
+        [3, 51, 15, 63, 2, 50, 14, 62],
+        [35, 19, 47, 31, 34, 18, 46, 30],
+        [11, 59, 7, 55, 10, 58, 6, 54],
+        [43, 27, 39, 23, 42, 26, 38, 22]
+    ];
 
     export class Animation {
         public frames: Image[]
@@ -53,7 +62,7 @@ namespace renderer {
             if (this.synced) {
                 this.currentTick = game.runtime()*30 //Assumes game is running at 60 fps
             } else {
-                this.currentTick += 1
+                this.currentTick++
             }
             
             let ticksUntilNextFrame: number
@@ -64,9 +73,9 @@ namespace renderer {
             }
             if (this.currentTick > ticksUntilNextFrame) {
                 this.currentTick = 1
-                this.currentFrame += 1
+                this.currentFrame++
                 if (this.currentFrame > this.frames.length) {
-                    this.loops += 1
+                    this.loops++
                     if (this.loops > this.maxLoops && this.maxLoops != -1) {
                         this.animationState = AnimationState.Stopped
                     }
@@ -151,7 +160,7 @@ namespace renderer {
     function lightShadeTileImage(image: Image, tilePosition: Vector2): Image {
         let shadedImage: Image = image.clone()
         let lightShaderTilePosition: Vector2 = tilePosition.multiply(2, true)
-        lightShaderTilePosition.add(lightBufferPosition)
+        lightShaderTilePosition.add(new Vector2(6, 10))
         let shaderBufferIndex: number = lightShaderTilePosition.x + lightBufferSize.x * lightShaderTilePosition.y//Index that correlates with the top-left quarter of the tile
         let colorMapPaletteIndex: number = lightBuffer.getUint8(shaderBufferIndex)
 
@@ -167,21 +176,21 @@ namespace renderer {
             shadedImage.mapRect(0, 0, 4, 4, gameAssets.currentColorMapPalettes[colorMapPaletteIndex])
         }
 
-        shaderBufferIndex += 1
+        shaderBufferIndex++
         colorMapPaletteIndex = lightBuffer.getUint8(shaderBufferIndex)
         if (colorMapPaletteIndex > 0) {
             //shadedImage.fillRect(4, 0, 4, 4, 3)
             shadedImage.mapRect(4, 0, 4, 4, gameAssets.currentColorMapPalettes[colorMapPaletteIndex])
         }
 
-        shaderBufferIndex += lightBufferSize.x
+        shaderBufferIndex += lightBufferSize.x-3
         colorMapPaletteIndex = lightBuffer.getUint8(shaderBufferIndex)
         if (colorMapPaletteIndex > 0) {
             //shadedImage.fillRect(0, 4, 4, 4, 4)
             shadedImage.mapRect(0, 4, 4, 4, gameAssets.currentColorMapPalettes[colorMapPaletteIndex])
         }
 
-        shaderBufferIndex += 1
+        shaderBufferIndex++
         colorMapPaletteIndex = lightBuffer.getUint8(shaderBufferIndex)
         if (colorMapPaletteIndex > 0) {
             //shadedImage.fillRect(4, 4, 4, 4, 5)
@@ -240,14 +249,45 @@ namespace renderer {
         //let asdasd = image.ofBuffer(screenBuffer)
     }
 
+    function ditherPixel(pixelPosition: Vector2, threshold: number): boolean {
+        let dithering = Math.floor(Math.modulo(threshold, 65))
+        let map = bayerThresholdMap[pixelPosition.x % 8][pixelPosition.y % 8]
+        if (map < dithering + 1) {
+            return true
+        }
+        return false
+    }
+
     function updateLightBuffer(): void {
-        for (let x = 0; x < lightBufferSize.x; x++) {
-            for (let y = 0; y < lightBufferSize.y; y++) {
+        lightBuffer.fill(0, 0, lightBuffer.length)
+        let lightBufferIndex: number = 0
+        for (let y = 0; y < lightBufferSize.y; y++) {
+            for (let x = 0; x < lightBufferSize.x; x++) {
                 let lightShaderTilePosition = new Vector2(x, y)
-                let lightShaderPixelPosition = lightShaderTilePosition.multiply(customTiles.tileSizePixels/2, true)
+                let lightShaderPixelPosition = lightShaderTilePosition.multiply(customTiles.tileSizePixels / 2, true)
                 lightShaderPixelPosition.add(lightBufferPosition)
-                console.log(lightShaderPixelPosition.magnitude())
-                let distance: number //**TODO**
+                for (let lightIndex = 0; lightIndex < lightSources.length; lightIndex++) {
+                    let light: LightSource = lightSources[lightIndex]
+                    let distance: number = lightShaderPixelPosition.subtract(light.pixelPosition, true).magnitude()
+                    if (distance < light.radiusPixels) {
+                        if (!ditherPixel(lightShaderTilePosition, Math.floor((Math.clamp(1, light.radiusPixels * 0.6, distance) * 1.5 / light.radiusPixels) * 64)) && distance < light.radiusPixels * 0.65) {
+                            lightBuffer.setUint8(lightBufferIndex, light.colorMapPalette[0])
+                        } else if (!ditherPixel(lightShaderTilePosition, Math.floor((Math.clamp(0, light.radiusPixels, distance - (light.radiusPixels / 2)) / light.radiusPixels) * 2 * 64))) {
+                            lightBuffer.setUint8(lightBufferIndex, light.colorMapPalette[1])
+                        }
+                        /*
+                        if (!ditherPixel(lightShaderTilePosition, Math.floor((Math.clamp(1, light.radiusPixels / 2, distance) * 2 / light.radiusPixels) * 64))) {
+                            //lightBuffer.setUint8(lightBufferIndex, light.colorMapPalette[0])
+                        } else if (distance < light.radiusPixels/2) {
+                            lightBuffer.setUint8(lightBufferIndex, light.colorMapPalette[1])
+                        } else
+                        */
+
+                        //console.log(distance)
+                        //console.log(lightShaderPixelPosition.toString())
+                    }
+                }
+                lightBufferIndex++
             }
         }
     }
