@@ -151,7 +151,7 @@ namespace renderer {
     function lightShadeTileImage(image: Image, tilePosition: Vector2): Image {
         let shadedImage: Image = image.clone()
         let lightShaderTilePosition: Vector2 = tilePosition.multiply(2, true)
-        lightShaderTilePosition.add(lightBufferPosition)
+        lightShaderTilePosition.add(new Vector2(6, 10))
         let shaderBufferIndex: number = lightShaderTilePosition.x + lightBufferSize.x * lightShaderTilePosition.y//Index that correlates with the top-left quarter of the tile
         let colorMapPaletteIndex: number = lightBuffer.getUint8(shaderBufferIndex)
 
@@ -241,12 +241,24 @@ namespace renderer {
     }
 
     function updateLightBuffer(): void {
+        let lightBufferIndex: number = 0
         for (let x = 0; x < lightBufferSize.x; x++) {
             for (let y = 0; y < lightBufferSize.y; y++) {
+                lightBufferIndex++
                 let lightShaderTilePosition = new Vector2(x, y)
                 let lightShaderPixelPosition = lightShaderTilePosition.multiply(customTiles.tileSizePixels/2, true)
                 lightShaderPixelPosition.add(lightBufferPosition)
-                console.log(lightShaderPixelPosition.magnitude())
+                for (let lightIndex = 0; lightIndex < lightSources.length; lightIndex++) {
+                    let light: LightSource = lightSources[lightIndex]
+                    let distance: number = lightShaderPixelPosition.subtract(light.pixelPosition, true).magnitude()
+                    if (distance < 20) {
+                        lightBuffer.setUint8(lightBufferIndex, 3)
+                        console.log(distance)
+                        console.log(lightShaderPixelPosition.toString())
+                    }
+                }
+                //console.log(lightShaderPixelPosition.toString())
+                //console.log(lightShaderPixelPosition.magnitude())
                 let distance: number //**TODO**
             }
         }
