@@ -1,15 +1,16 @@
 namespace customTiles {
     export let loadedLevel: gameAssets.LevelData
     export const tileSizePixels: number = 8
-    export const tileSize: Vector2 = new Vector2(tileSizePixels, tileSizePixels)
+    export const tileSizePixelsHalf: number = tileSizePixels/2
+    export const tileSize: Vector2 = {x: tileSizePixels, y: tileSizePixels}
     export let loadingNewLevel: boolean = true
 
     export function tilePositionToPixelPosition(tilePosition: Vector2): Vector2 {
-        return tilePosition.multiply(tileSizePixels, true)
+        return Vector2Library.multiply(tilePosition, customTiles.tileSizePixels)
     }
 
     export function pixelPositionToTilePosition(pixelPosition: Vector2): Vector2 {
-        return pixelPosition.divide(tileSizePixels, true).round(1)
+        return Vector2Library.floor(Vector2Library.divide(pixelPosition, customTiles.tileSizePixels))
     }
 
     export function tilePositionToTileIdx(tilePosition: Vector2): number {

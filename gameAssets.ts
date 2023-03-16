@@ -1,90 +1,3 @@
-class Vector2 {
-    x: number
-    y: number
-
-    constructor(x: number = 1, y: number = 1) {
-        this.x = x
-        this.y = y
-    }
-
-    add(vector2: Vector2, createNewObject: boolean = false): Vector2 {
-        let thisVector: Vector2 = this
-        if (createNewObject) {
-            thisVector = new Vector2(thisVector.x, thisVector.y)
-        }
-        thisVector.x += vector2.x
-        thisVector.y += vector2.y
-        return thisVector
-    }
-
-    multiply(vector2: Vector2 | number, createNewObject: boolean = false): Vector2 {
-        let thisVector: Vector2 = this
-        if (createNewObject) {
-            thisVector = new Vector2(thisVector.x, thisVector.y)
-        }
-        if (typeof(vector2) == "number") {
-            thisVector.x *= vector2
-            thisVector.y *= vector2
-        } else {
-            thisVector.x *= vector2.x
-            thisVector.y *= vector2.y
-        }
-        return thisVector
-    }
-
-    subtract(vector2: Vector2, createNewObject: boolean = false): Vector2 {
-        let thisVector: Vector2 = this
-        if (createNewObject) {
-            thisVector = new Vector2(thisVector.x, thisVector.y)
-        }
-        thisVector.x -= vector2.x
-        thisVector.y -= vector2.y
-        return thisVector
-    }
-
-    divide(vector2: Vector2 | number, createNewObject: boolean = false): Vector2 {
-        let thisVector: Vector2 = this
-        if (createNewObject) {
-            thisVector = new Vector2(thisVector.x, thisVector.y)
-        }
-        if (typeof (vector2) == "number") {
-            thisVector.x /= vector2
-            thisVector.y /= vector2
-        } else {
-            thisVector.x /= vector2.x
-            thisVector.y /= vector2.y
-        }
-        return thisVector
-    }
-
-    round(mode: number = null): Vector2 {
-        switch(mode) {
-            case 1:
-                this.x = Math.floor(this.x)
-                this.y = Math.floor(this.y)
-            case 2:
-                this.x = Math.ceil(this.x)
-                this.y = Math.ceil(this.y)
-            default:
-                this.x = Math.round(this.x)
-                this.y = Math.round(this.y)
-        }
-        return this
-    }
-
-    magnitude(): number {
-        return Math.sqrt(this.x*this.x+this.y*this.y)
-    }
-
-    toString(): string {
-        return `X: ${this.x}, Y: ${this.y}`
-    }
-
-    clone(): Vector2 {
-        return new Vector2(this.x, this.y)
-    }
-}
-
 namespace gameAssets {
     /*
     export type SingleTile = {
@@ -471,8 +384,8 @@ namespace gameAssets {
                 . 1 4 1 1 1 1 b 6 b 1 1 1 1 1 f 1
                 . b e e 3 7 7 8 d d 9 c d d d f c
                 . 3 d d 2 8 8 d d f d d d f f f d
-                . 3 2 2 4 4 4 5 7 d c 4 4 d 3 f 4
-                . 2 2 2 3 3 4 3 d d 4 4 4 d 3 f 2
+                . 3 2 2 4 4 4 5 7 d c 3 e d 3 f 4
+                . 2 2 2 3 3 4 3 d d 4 4 3 e 3 f 2
                 . c e e e e c c f f 3 3 3 f e f 3
                 . . . . . . . . . . . . . . . . .
                 . 5 8 7 5 5 5 7 8 8 6 6 7 8 8 f 5

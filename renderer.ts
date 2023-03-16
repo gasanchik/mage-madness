@@ -10,26 +10,28 @@ namespace renderer {
         radiusPixels: number, 
         colorMapPalette: number[],
     }
+    let graphicsMode: number = 2 //0, 1, 2, 3, 4
 
-    export let screenPosition: Vector2 = new Vector2(0, 0)
-    let internalOldScreenPosition: Vector2 = new Vector2(0, 0)
-    let internalScreenPosition: Vector2 = new Vector2(0, 0)
-    export let screenPositionDifference: Vector2 = new Vector2(0, 0)
-    export const screenSize: Vector2 = new Vector2(160, 120)
-    export const tilesPerScreen: Vector2 = screenSize.divide(customTiles.tileSizePixels, true).round(1)
+    export let screenPosition: Vector2 = {x: 0, y: 0}
+    let internalOldScreenPosition: Vector2 = { x: 0, y: 0 }
+    let internalScreenPosition: Vector2 = { x: 0, y: 0 }
+    export let screenPositionDifference: Vector2 = { x: 0, y: 0 }
+    export const screenSize: Vector2 = { x: 160, y: 120 }
+    export const tilesPerScreen: Vector2 = Vector2Library.floor(Vector2Library.divide(screenSize, customTiles.tileSizePixels))//{ x: Math.floor(screenSize.x / customTiles.tileSizePixels), y: Math.floor(screenSize.y / customTiles.tileSizePixels) }
 
     let cachedTiles: {[key: string]: Image} = {}
     let lightSources: LightSource[] = [
         {
-            pixelPosition: new Vector2(80, 60),
+            pixelPosition: {x: 80, y: 60},
             radiusPixels: 60,
             colorMapPalette: [6, 5]
         }
     ]
     //40, 30
-    let lightBufferSize: Vector2 = new Vector2(52, 50) //40, 30 //20, 15, //26, 25 
+    let lightBufferSize: Vector2 = { x: 52, y: 50 } //40, 30 //20, 15, //26, 25
     let lightBuffer: Buffer = Buffer.create(lightBufferSize.x * lightBufferSize.y)
-    let lightBufferPosition: Vector2 = new Vector2(-24, -40) //In pixel position
+    let lightMappingSizeBuffer: Buffer = Buffer.create(lightBufferSize.x * lightBufferSize.y)
+    let lightBufferPosition: Vector2 = { x: -24, y: -40 } //In pixel position
 
     const bayerThresholdMap = [
         [1, 49, 13, 61, 4, 52, 16, 64],
@@ -129,7 +131,7 @@ namespace renderer {
 
     export function processImage(image: Image, colormapPalette: Buffer = null, flipped: number = 0, rotated: number = 0): Image {
         image = image.clone()
-        if (rotated > 0 && !hardwareMode) {
+        if (rotated > 0 && graphicsMode > 0) {
             image = image.rotated(rotated*90)
         }
     
@@ -157,51 +159,43 @@ namespace renderer {
         return image
     }
 
-    function lightShadeTileImage(image: Image, tilePosition: Vector2): Image {
-        let shadedImage: Image = image.clone()
-        let lightShaderTilePosition: Vector2 = tilePosition.multiply(2, true)
-        lightShaderTilePosition.add(new Vector2(6, 10))
-        let shaderBufferIndex: number = lightShaderTilePosition.x + lightBufferSize.x * lightShaderTilePosition.y//Index that correlates with the top-left quarter of the tile
-        let colorMapPaletteIndex: number = lightBuffer.getUint8(shaderBufferIndex)
+    function lightShadeTileQuarter(target: Image, pixelPosition: Vector2, shaderBufferIndex: number) {
+        let lightShadeBuffer: Buffer = gameAssets.currentColorMapPalettes[lightBuffer.getUint8(shaderBufferIndex)]
+        let mapSize: number = lightMappingSizeBuffer.getUint8(shaderBufferIndex)
+        if (graphicsMode <= 1) {
+            target.mapRect(pixelPosition.x, pixelPosition.y, 4, 4, lightShadeBuffer)
+        } else if (graphicsMode <= 2) {
+            target.mapRect(pixelPosition.x, pixelPosition.y, mapSize, mapSize, lightShadeBuffer)
+        } else if (graphicsMode >= 3) {
+            target.mapRect(pixelPosition.x, pixelPosition.y, 4, 4, lightShadeBuffer)
+        }
+    }
 
+    function lightShadeTileImage(target: Image, tilePosition: Vector2): Image {
+        let targetClone: Image = target.clone()
+        let lightShaderTilePosition: Vector2 = Vector2Library.add(Vector2Library.multiply(tilePosition, 2), { x: 6, y: 10 })//{ x: tilePosition.x * 2 + 6, y: tilePosition.y * 2 + 10}
+        let shaderBufferIndex: number = lightShaderTilePosition.x + lightBufferSize.x * lightShaderTilePosition.y//Index that correlates with the top-left quarter of the tile
+        let colorMapPaletteIndex: number = lightBuffer.getUint8(shaderBufferIndex)        
         /*
         console.log(colorMapPaletteIndex)
         console.log(shaderBufferIndex)
         console.log(tilePosition.x)
         console.log(tilePosition.y) 
         */
-
-        if (colorMapPaletteIndex > 0) {
-            //shadedImage.fillRect(0, 0, 4, 4, 2)
-            shadedImage.mapRect(0, 0, 4, 4, gameAssets.currentColorMapPalettes[colorMapPaletteIndex])
-        }
-
+        lightShadeTileQuarter(targetClone, { x: 0, y: 0 }, shaderBufferIndex)
         shaderBufferIndex++
-        colorMapPaletteIndex = lightBuffer.getUint8(shaderBufferIndex)
-        if (colorMapPaletteIndex > 0) {
-            //shadedImage.fillRect(4, 0, 4, 4, 3)
-            shadedImage.mapRect(4, 0, 4, 4, gameAssets.currentColorMapPalettes[colorMapPaletteIndex])
-        }
-
-        shaderBufferIndex += lightBufferSize.x-3
-        colorMapPaletteIndex = lightBuffer.getUint8(shaderBufferIndex)
-        if (colorMapPaletteIndex > 0) {
-            //shadedImage.fillRect(0, 4, 4, 4, 4)
-            shadedImage.mapRect(0, 4, 4, 4, gameAssets.currentColorMapPalettes[colorMapPaletteIndex])
-        }
-
+        lightShadeTileQuarter(targetClone, { x: 4, y: 0 }, shaderBufferIndex)
+        shaderBufferIndex += lightBufferSize.x -1 //- Math.floor(game.runtime()/500)
+        lightShadeTileQuarter(targetClone, { x: 0, y: 4 }, shaderBufferIndex)
         shaderBufferIndex++
-        colorMapPaletteIndex = lightBuffer.getUint8(shaderBufferIndex)
-        if (colorMapPaletteIndex > 0) {
-            //shadedImage.fillRect(4, 4, 4, 4, 5)
-            shadedImage.mapRect(4, 4, 4, 4, gameAssets.currentColorMapPalettes[colorMapPaletteIndex])
-        }
+        lightShadeTileQuarter(targetClone, { x: 4, y: 4 }, shaderBufferIndex)
 
-        return shadedImage
+        return targetClone
     }
 
-    function drawTile(layer: number = 0, tilePosition: Vector2): void {
+    function drawTile(layer: number = 0, tilePosition: Vector2, target: Image): void {
         let pixelPosition = customTiles.tilePositionToPixelPosition(tilePosition)
+
         let tileIdx = customTiles.tilePositionToTileIdx(tilePosition)
         let tile: number[] = customTiles.loadedLevel.tileMap[layer][tileIdx]
 
@@ -230,25 +224,30 @@ namespace renderer {
             }
         }
         tileVisual = tileVisual as Image
-        tileVisual = lightShadeTileImage(tileVisual, tilePosition)
-        stampImageToImage(tileVisual, screen, pixelPosition)
+        if (graphicsMode > 0) {
+            tileVisual = lightShadeTileImage(tileVisual, tilePosition)
+        }
+        //target.drawTransparentImage(tileVisual, pixelPosition.x, pixelPosition.y)
+        stampImageToImage(tileVisual, target, pixelPosition)
     }
 
-    function drawTiles(layer: number = 0) {
+    function drawTiles(layer: number = 0, target: Image) {
         if (customTiles.loadingNewLevel) {
             return 
         }
 
         let screenPositionTile: Vector2 = customTiles.pixelPositionToTilePosition(internalScreenPosition)
+        
         for (let x = screenPositionTile.x; x < tilesPerScreen.x + screenPositionTile.x + 1; x++) {
             for (let y = screenPositionTile.y; y < tilesPerScreen.y + screenPositionTile.y + 1; y++) {
-                drawTile(layer, new Vector2(x, y))
+                drawTile(layer, {x: x, y: y}, target)
             }
         }
         //let asdasd = image.ofBuffer(screenBuffer)
     }
 
     function ditherPixel(pixelPosition: Vector2, threshold: number): boolean {
+        return false
         let dithering = Math.floor(Math.modulo(threshold, 65))
         let map = bayerThresholdMap[pixelPosition.x % 8][pixelPosition.y % 8]
         if (map < dithering + 1) {
@@ -258,21 +257,31 @@ namespace renderer {
     }
 
     function updateLightBuffer(): void {
+        if (graphicsMode <= 0) {
+            return
+        }
+
         lightBuffer.fill(0, 0, lightBuffer.length)
+        lightMappingSizeBuffer.fill(255, 0, lightMappingSizeBuffer.length)
         let lightBufferIndex: number = 0
         for (let y = 0; y < lightBufferSize.y; y++) {
             for (let x = 0; x < lightBufferSize.x; x++) {
-                let lightShaderTilePosition = new Vector2(x, y)
-                let lightShaderPixelPosition = lightShaderTilePosition.multiply(customTiles.tileSizePixels / 2, true)
-                lightShaderPixelPosition.add(lightBufferPosition)
+                let lightShaderTilePosition = {x: x, y: y}
+                let lightShaderPixelPosition = { x: lightShaderTilePosition.x * customTiles.tileSizePixelsHalf + lightBufferPosition.x, y: lightShaderTilePosition.y * customTiles.tileSizePixelsHalf + lightBufferPosition.y}
                 for (let lightIndex = 0; lightIndex < lightSources.length; lightIndex++) {
                     let light: LightSource = lightSources[lightIndex]
-                    let distance: number = lightShaderPixelPosition.subtract(light.pixelPosition, true).magnitude()
+                    let subtracted: Vector2
+                    let distance: number = Vector2Library.distance(lightShaderPixelPosition, light.pixelPosition)
                     if (distance < light.radiusPixels) {
-                        if (!ditherPixel(lightShaderTilePosition, Math.floor((Math.clamp(1, light.radiusPixels * 0.6, distance) * 1.5 / light.radiusPixels) * 64)) && distance < light.radiusPixels * 0.65) {
-                            lightBuffer.setUint8(lightBufferIndex, light.colorMapPalette[0])
-                        } else if (!ditherPixel(lightShaderTilePosition, Math.floor((Math.clamp(0, light.radiusPixels, distance - (light.radiusPixels / 2)) / light.radiusPixels) * 2 * 64))) {
-                            lightBuffer.setUint8(lightBufferIndex, light.colorMapPalette[1])
+                        if (graphicsMode > 0) {
+                            if (distance < light.radiusPixels * 0.65) {
+                                lightBuffer.setUint8(lightBufferIndex, light.colorMapPalette[0])
+                            } else {
+                                lightBuffer.setUint8(lightBufferIndex, light.colorMapPalette[1])
+                            }
+                            if (graphicsMode >= 2) {
+                                lightMappingSizeBuffer.setUint8(lightIndex, Math.floor((distance / light.radiusPixels) * 255))
+                            }
                         }
                         /*
                         if (!ditherPixel(lightShaderTilePosition, Math.floor((Math.clamp(1, light.radiusPixels / 2, distance) * 2 / light.radiusPixels) * 64))) {
@@ -293,31 +302,31 @@ namespace renderer {
 
     //Background renderer
     scene.createRenderable(0, (currentScreen: Image, camera: scene.Camera) => {
-        screenPosition.add(new Vector2(controller.dx(), controller.dy()))
-        internalScreenPosition = screenPosition.round()
-        screenPositionDifference = internalScreenPosition.subtract(internalOldScreenPosition, true)
-        internalOldScreenPosition = internalScreenPosition.clone()
+        screenPosition = Vector2Library.add(screenPosition, { x: controller.dx(), y: controller.dy()})
+        internalScreenPosition = Vector2Library.round(screenPosition)
+        screenPositionDifference = Vector2Library.subtract(internalScreenPosition, internalOldScreenPosition)
+        internalOldScreenPosition = Vector2Library.clone(screenPosition)
     })
 
     //lightShadeTileImage(null, new Vector2(2, 2))
 
     //Tile background renderer 
-    scene.createRenderable(1, (currentScreen: Image, camera: scene.Camera) => {
-        drawTiles(0)
+    scene.createRenderable(1, (target: Image, camera: scene.Camera) => {
+        drawTiles(0, target)
     })
 
     //Entity renderer
-    scene.createRenderable(2, (currentScreen: Image, camera: scene.Camera) => {
+    scene.createRenderable(2, (target: Image, camera: scene.Camera) => {
 
     })
 
     //Tile foreground renderer
-    scene.createRenderable(3, (currentScreen: Image, camera: scene.Camera) => {
+    scene.createRenderable(3, (target: Image, camera: scene.Camera) => {
         //drawTiles(0)
     })
 
     //Foreground renderer
-    scene.createRenderable(4, (currentScreen: Image, camera: scene.Camera) => {
+    scene.createRenderable(4, (target: Image, camera: scene.Camera) => {
 
     })
 
